@@ -1,10 +1,10 @@
 import itertools
-
 import cv2
 import mediapipe as mp
 import math
 import numpy as np
 import utils as ut
+import random
 
 
 def landmarks_detection(img, results):
@@ -30,23 +30,47 @@ def crop_frame(mesh: list, edge: tuple, image, scale: float, size: int):
     return resized_img
 
 
-def save_img(image: np.array, counter: itertools.count) -> None:
+def save_img(image: np.array, counter: itertools.count, position: tuple) -> None:
     count = next(counter)
-    is_written = cv2.imwrite(img=image, filename=f"./data/{ut.SESSION_ID}/{count:06d}.jpg")
+    x, y = position
+    is_written = cv2.imwrite(img=image, filename=f"./data/{ut.SESSION_ID}/{count:06d}_{x}_{y}.jpg")
     if not is_written:
         print('Error while saving image')
 
 
+def update_train_screen(rect_size: int) -> tuple:
+    width, height = ut.WIDTH, ut.HEIGHT
+    size = rect_size
+
+    black_screen = np.zeros((height, width))
+
+    x = random.randint(size, width-size)
+    y = random.randint(size, height-size)
+
+    cv2.rectangle(black_screen, (x-size, y-size), (x+size, y+size), (255, 255, 255), -1)
+    return x, y, black_screen
+
+
 def main():
+    screen_width, screen_height = 1920, 1080
+
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
     mp_face_mesh = mp.solutions.face_mesh
 
     caption = cv2.VideoCapture(0)
-    caption.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    caption.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    caption.set(cv2.CAP_PROP_FRAME_WIDTH, screen_width)
+    caption.set(cv2.CAP_PROP_FRAME_HEIGHT, screen_height)
+
+    window_name = 'Eyez'
+    cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)
+    cv2.moveWindow(window_name, screen_width - 1, screen_height - 1)
+    cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
+                          cv2.WINDOW_FULLSCREEN)
 
     mode = 'selfie'
+
+    x_target, y_target, train_screen = update_train_screen(rect_size=4)
 
     with mp_face_mesh.FaceMesh(
                 max_num_faces=1,
@@ -79,14 +103,17 @@ def main():
                     img_show = frame
                 case 'eyez':
                     img_show = both_eyes
+                case 'train':
+                    img_show = train_screen
                 case _:
                     img_show = frame
 
-            cv2.imshow('Eyez', img_show)
+            cv2.imshow(window_name, img_show)
 
             pressed_key = cv2.waitKey(1)
             if pressed_key == ord(' '):
-                save_img(both_eyes, ut.image_counter)
+                save_img(both_eyes, ut.image_counter, (x_target, y_target))
+                x_target, y_target, train_screen = update_train_screen(rect_size=5)
             elif pressed_key == ord('s'):
                 mode = 'selfie'
             elif pressed_key == ord('e'):
