@@ -5,6 +5,7 @@ import math
 import numpy as np
 import utils as ut
 import random
+import os
 
 
 def landmarks_detection(img, results):
@@ -30,10 +31,10 @@ def crop_frame(mesh: list, edge: tuple, image, scale: float, size: int):
     return resized_img
 
 
-def save_img(image: np.array, counter: itertools.count, position: tuple) -> None:
-    count = next(counter)
+def save_img(image: np.array, count: int, position: tuple, folder_name: str) -> None:
     x, y = position
-    is_written = cv2.imwrite(img=image, filename=f"./data/{ut.SESSION_ID}/{count:06d}_{x}_{y}.jpg")
+
+    is_written = cv2.imwrite(img=image, filename=f"./data/{folder_name}/{ut.SESSION_ID}/{count:06d}_{x}_{y}.jpg")
     if not is_written:
         print('Error while saving image')
 
@@ -70,7 +71,7 @@ def main():
 
     mode = 'selfie'
 
-    x_target, y_target, train_screen = update_train_screen(rect_size=4)
+    x_target, y_target, train_screen = update_train_screen(rect_size=5)
 
     with mp_face_mesh.FaceMesh(
                 max_num_faces=1,
@@ -91,12 +92,22 @@ def main():
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
                 mesh_coords = landmarks_detection(frame, results)
 
-                # left_eye = crop_frame(mesh_coords, ut.LEFT_IRIS, frame, 3, 100)
-                # right_eye = crop_frame(mesh_coords, ut.RIGHT_IRIS, frame, 3, 100)
-                left_eye = crop_frame(mesh_coords, ut.LEFT_EYE, frame, 1.2, 100)
-                right_eye = crop_frame(mesh_coords, ut.RIGHT_EYE, frame, 1.2, 100)
+                try:
+                    # Image centered by iris
+                    left_eye_iris = crop_frame(mesh_coords, ut.LEFT_IRIS, frame, 3, 100)
+                    right_eye_iris = crop_frame(mesh_coords, ut.RIGHT_IRIS, frame, 3, 100)
 
-                both_eyes = np.hstack((left_eye, right_eye))
+                    # Centered by eyelid
+                    left_eye = crop_frame(mesh_coords, ut.LEFT_EYE, frame, 1.2, 100)
+                    right_eye = crop_frame(mesh_coords, ut.RIGHT_EYE, frame, 1.2, 100)
+
+                    both_eyes_iris = np.hstack((left_eye_iris, right_eye_iris))
+                    both_eyes = np.hstack((left_eye, right_eye))
+
+                    success_tracking = True
+                except BaseException:
+                    print('Eyes are uot of screen')
+                    success_tracking = False
 
             match mode:
                 case 'selfie':
@@ -112,8 +123,11 @@ def main():
 
             pressed_key = cv2.waitKey(1)
             if pressed_key == ord(' '):
-                save_img(both_eyes, ut.image_counter, (x_target, y_target))
-                x_target, y_target, train_screen = update_train_screen(rect_size=5)
+                if (mode == 'train') & success_tracking:
+                    count = next(ut.image_counter)
+                    save_img(both_eyes_iris, count, (x_target, y_target), 'iris')
+                    save_img(both_eyes, count, (x_target, y_target), 'eyelid')
+                    x_target, y_target, train_screen = update_train_screen(rect_size=5)
             elif pressed_key == ord('s'):
                 mode = 'selfie'
             elif pressed_key == ord('e'):

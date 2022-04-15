@@ -14,4 +14,5 @@ RIGHT_EYE = (362, 263)
 LEFT_IRIS = (469, 471)
 RIGHT_IRIS = (474, 476)
 
-os.makedirs(f'./data/{SESSION_ID}')
+os.makedirs(f'./data/iris/{SESSION_ID}')
+os.makedirs(f'./data/eyelid/{SESSION_ID}')
