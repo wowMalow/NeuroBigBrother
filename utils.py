@@ -13,5 +13,3 @@ LEFT_IRIS = (469, 471)
 RIGHT_IRIS = (474, 476)
 
 os.makedirs(f'./data/{SESSION_ID}')
-
-print(type(image_counter))
